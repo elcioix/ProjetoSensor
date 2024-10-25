@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Painel Administrativo</title>
+    <link rel="stylesheet" href="./css/painel_styles.css">
+    <link rel="stylesheet" href="./css/styles_adm_painel.css">
+    <style>
+      /* Estilos para a janela modal */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgb(0,0,0);
+        background-color: rgba(0,0,0,0.4);
+      }
+      .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+      }
+      .modal-content table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .modal-content th, .modal-content td {
+        border: 1px solid #ddd;
+        padding: 8px;
+      }
+      .modal-content th {
+        background-color: #f2f2f2;
+        text-align: left;
+      }
+      .modal-content tr:nth-child(even) {
+        background-color: #f9f9f9;
+      }
+      .modal-content tr:hover {
+        background-color: #ddd;
+      }
+      .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+      }
+      .close:hover, .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .modal-content form {
+        display: flex;
+        flex-direction: column;
+      }
+      .modal-content form input,
+      .modal-content form select,
+      .modal-content form button {
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="doLogin">
+      <h1>Login</h1>
+      <form id="loginForm">
+        <input type="text" id="email" placeholder="Email" required />
+        <input type="password" id="password" placeholder="Password" required />
+        <button type="submit">Login</button>
+      </form>
+      <div id="buttonContainer" style="display: none;">
+        <button id="adminPanelButton" style="display: none;">Painel Admin</button>
+        <button id="viewSensorDataButton" style="display: none;">Ver Dados de Sensores</button>
+      </div>
+    </div>
+    
+    
+
+    <div id="doPainel">
+      <button id="adminPanelButton" style="display: none;">Painel Admin</button>
+      <div id="adminPanel" class="modal">
+        <div class="modal-content">
+          <span class="close">&times;</span>
+          <h2>Painel Administrativo</h2>
+          <form id="adminForm">
+            <input type="text" id="newAdminEmail" placeholder="Novo Email" required>
+            <input type="password" id="newAdminPassword" placeholder="Nova Senha" required>
+            <select id="newAdminRole">
+              <option value="false">User</option>
+              <option value="true">Admin</option>
+            </select>
+            <button type="submit">Criar Usuário</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div id="dosDados">
+      <div id="dobotao">
+        <button id="viewSensorDataButton" style="display: none;">Ver Dados de Sensores</button>
+      </div>
+      <div id="sensorDataModal" class="modal">
+        <div class="modal-content">
+          <span class="close">&times;</span>
+          <h2>Dados de Sensores</h2>
+          <table id="sensorDataTable">
+            <thead>
+              <tr>
+                <th>Dia</th>
+                <th>Hora</th>
+                <th>Volume</th>
+                <th>Tempo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Dados irão aqui -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+ document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  console.log('Tentando Login', email);
+  const response = await fetch("/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+
+  if (response.ok) {
+    const result = await response.json();
+    console.log('Resposta do Login', result);
+    const { token } = result;
+    localStorage.setItem("token", token);
+
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    console.log('Payload do Token Decodificado:', payload);
+
+    const buttonContainer = document.getElementById("buttonContainer");
+    buttonContainer.style.display = "block";
+
+    if (payload.role === "admin") {
+      document.getElementById("adminPanelButton").style.display = "block";
+    } else {
+      document.getElementById("adminPanelButton").style.display = "none";
+    }
+
+    document.getElementById("viewSensorDataButton").style.display = "block";
+  } else {
+    console.log('Erro de Login:', await response.text());
+    document.getElementById("buttonContainer").style.display = "none";
+  }
+});
+
+
+      document.getElementById("viewSensorDataButton").addEventListener("click", async () => {
+        console.log('Acessando Dados de Sensores');
+        const response = await fetch("/data", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Dados de Sensores:', data);
+
+          // Preencher a tabela
+          const tableBody = document.getElementById("sensorDataTable").getElementsByTagName("tbody")[0];
+          tableBody.innerHTML = ""; // Limpar tabela
+
+          data.forEach(item => {
+            const row = tableBody.insertRow();
+            row.insertCell(0).innerText = item.dia; // Acesse os campos corretos
+            row.insertCell(1).innerText = item.hora;
+            row.insertCell(2).innerText = item.volume;
+            row.insertCell(3).innerText = item.tempo;
+          });
+
+          // Exibir modal
+          const modal = document.getElementById("sensorDataModal");
+          modal.style.display = "block";
+
+          // Fechar modal
+          document.getElementsByClassName("close")[0].onclick = function() {
+            modal.style.display = "none";
+          };
+
+          window.onclick = function(event) {
+            if (event.target === modal) {
+              modal.style.display = "none";
+            }
+          }
+        } else {
+          console.log('Erro ao acessar dados:', await response.text());
+        }
+      });
+
+      // Painel Administrativo
+      document.getElementById("adminPanelButton").addEventListener("click", () => {
+        console.log('Acessando Painel Admin');
+        const adminModal = document.getElementById("adminPanel");
+        adminModal.style.display = "block";
+      });
+
+      document.querySelectorAll(".close").forEach(element => {
+        element.onclick = function() {
+          const adminModal = document.getElementById("adminPanel");
+          adminModal.style.display = "none";
+        };
+      });
+
+      window.onclick = function(event) {
+        const adminModal = document.getElementById("adminPanel");
+        if (event.target === adminModal) {
+          adminModal.style.display = "none";
+        }
+      };
+
+      document.getElementById("adminForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("newAdminEmail").value;
+        const password = document.getElementById("newAdminPassword").value;
+        const isAdmin = document.getElementById("newAdminRole").value === "true";
+
+        console.log('Tentando Criar Usuário Admin', email);
+        const response = await fetch("/users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ email, password, isAdmin })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Usuário Admin Criado com Sucesso', result);
+          alert("Usuário criado com sucesso!");
+          document.getElementById("adminPanel").style.display = "none"; // Fechar modal após sucesso
+        } else {
+          console.log('Erro ao criar usuário admin:', await response.text());
+          alert("Erro ao criar usuário.");
+        }
+      });
+
+
+// Fechar modal de dados de sensores
+document.querySelectorAll("#sensorDataModal .close").forEach(element => {
+  element.onclick = function() {
+    const modal = document.getElementById("sensorDataModal");
+    modal.style.display = "none";
+  };
+});
+
+// Fechar modal do painel admin
+document.querySelectorAll("#adminPanel .close").forEach(element => {
+  element.onclick = function() {
+    const modal = document.getElementById("adminPanel");
+    modal.style.display = "none";
+  };
+});
+
+window.onclick = function(event) {
+  const sensorModal = document.getElementById("sensorDataModal");
+  const adminModal = document.getElementById("adminPanel");
+  if (event.target === sensorModal) {
+    sensorModal.style.display = "none";
+  }
+  if (event.target === adminModal) {
+    adminModal.style.display = "none";
+  }
+};
+
+    </script>
+  </body>
+</html>
